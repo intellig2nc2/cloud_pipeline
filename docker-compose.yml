@@ -1,71 +1,65 @@
 services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
 
-  # ==========================================
-  # FastAPI
-  # ==========================================
+    container_name: image-rag-backend
 
-  services:
-    backend:
-      build:
-        context: ./backend
-        dockerfile: Dockerfile
+    env_file:
+      - .env
 
-      container_name: image-rag-backend
+    expose:
+      - "8000"
 
-      env_file:
-        - .env
+    volumes:
+      - huggingface-cache:/root/.cache/huggingface
 
-      expose:
-        - "8000"
+    networks:
+      - image-rag-network
 
-      healthcheck:
-        test:
-          [
-            "CMD",
-            "uv",
-            "run",
-            "python",
-            "-c",
-            "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/docs')"
-          ]
-        interval: 5s
-        timeout: 5s
-        retries: 30
-        start_period: 10s
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "uv",
+          "run",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/docs')"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
 
-      restart: unless-stopped
+    restart: unless-stopped
 
 
-    nginx:
-      build:
-        context: .
-        dockerfile: nginx/Dockerfile
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
 
-      container_name: image-rag-nginx
+    container_name: image-rag-nginx
 
-      ports:
-        - "80:80"
+    ports:
+      - "80:80"
 
-      depends_on:
-        backend:
-          condition: service_healthy
+    depends_on:
+      backend:
+        condition: service_healthy
 
-      restart: unless-stopped
+    networks:
+      - image-rag-network
 
-# ==========================================
-# Network
-# ==========================================
+    restart: unless-stopped
+
 
 networks:
-
   image-rag-network:
     driver: bridge
 
 
-# ==========================================
-# Volume
-# ==========================================
-
 volumes:
-
   huggingface-cache:
