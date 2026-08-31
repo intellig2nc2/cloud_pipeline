@@ -39,8 +39,14 @@ def create_image_embedding(image: Image.Image) -> torch.Tensor:
     pixel_values = inputs["pixel_values"].to(DEVICE)
 
     with torch.no_grad():
-        embedding = clip_model.get_image_features(
+        vision_output = clip_model.vision_model(
             pixel_values=pixel_values
+        )
+
+        pooled_output = vision_output.pooler_output
+
+        embedding = clip_model.visual_projection(
+            pooled_output
         )
 
     embedding = embedding / embedding.norm(
