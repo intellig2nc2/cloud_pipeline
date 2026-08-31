@@ -12,4 +12,5 @@ dependencies = [
     "pillow",
     "transformers",
     "torch",
+    "boto3>=1.43.83",
 ]
