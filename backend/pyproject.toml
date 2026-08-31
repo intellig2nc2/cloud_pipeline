@@ -13,4 +13,5 @@ dependencies = [
     "transformers",
     "torch",
     "boto3>=1.43.83",
+    "redis>=8.1.0",
 ]
