@@ -4,51 +4,53 @@ services:
   # FastAPI
   # ==========================================
 
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+  services:
+    backend:
+      build:
+        context: ./backend
+        dockerfile: Dockerfile
 
-    container_name: image-rag-backend
+      container_name: image-rag-backend
 
-    restart: unless-stopped
+      env_file:
+        - .env
 
-    env_file:
-      - .env
+      expose:
+        - "8000"
 
-    expose:
-      - "8000"
+      healthcheck:
+        test:
+          [
+            "CMD",
+            "uv",
+            "run",
+            "python",
+            "-c",
+            "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/docs')"
+          ]
+        interval: 5s
+        timeout: 5s
+        retries: 30
+        start_period: 10s
 
-    volumes:
-      # Hugging Face 모델 캐시
-      - huggingface-cache:/root/.cache/huggingface
-
-    networks:
-      - image-rag-network
+      restart: unless-stopped
 
 
-  # ==========================================
-  # React + Nginx
-  # ==========================================
+    nginx:
+      build:
+        context: .
+        dockerfile: nginx/Dockerfile
 
-  nginx:
-    build:
-      context: .
-      dockerfile: nginx/Dockerfile
+      container_name: image-rag-nginx
 
-    container_name: image-rag-nginx
+      ports:
+        - "80:80"
 
-    restart: unless-stopped
+      depends_on:
+        backend:
+          condition: service_healthy
 
-    ports:
-      - "80:80"
-
-    depends_on:
-      - backend
-
-    networks:
-      - image-rag-network
-
+      restart: unless-stopped
 
 # ==========================================
 # Network
