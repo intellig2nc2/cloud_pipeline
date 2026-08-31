@@ -215,7 +215,9 @@ def update_image(
     같은 Key에 Put하면 기존 파일이 교체된다.
     """
 
-    key = _build_key(filename)
+    def _build_key(filename: str) -> str:
+        filename = filename.lstrip("/")
+        return f"{S3_IMAGE_PREFIX}/{filename}"
 
     extra_args = {}
 
