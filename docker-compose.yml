@@ -1,0 +1,69 @@
+services:
+
+  # ==========================================
+  # FastAPI
+  # ==========================================
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    container_name: image-rag-backend
+
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    expose:
+      - "8000"
+
+    volumes:
+      # Hugging Face 모델 캐시
+      - huggingface-cache:/root/.cache/huggingface
+
+    networks:
+      - image-rag-network
+
+
+  # ==========================================
+  # React + Nginx
+  # ==========================================
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+
+    container_name: image-rag-nginx
+
+    restart: unless-stopped
+
+    ports:
+      - "80:80"
+
+    depends_on:
+      - backend
+
+    networks:
+      - image-rag-network
+
+
+# ==========================================
+# Network
+# ==========================================
+
+networks:
+
+  image-rag-network:
+    driver: bridge
+
+
+# ==========================================
+# Volume
+# ==========================================
+
+volumes:
+
+  huggingface-cache:

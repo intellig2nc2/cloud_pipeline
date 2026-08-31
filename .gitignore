@@ -1,0 +1,98 @@
+# =========================
+# Environment
+# =========================
+.env
+.env.*
+!.env.example
+
+backend/images
+jenkins
+
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+.venv/
+venv/
+env/
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+*.egg-info/
+dist/
+build/
+
+
+# =========================
+# Node / React / Vite
+# =========================
+node_modules/
+frontend/node_modules/
+
+frontend/dist/
+frontend/.vite/
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+
+# =========================
+# IDE
+# =========================
+.idea/
+*.iml
+
+.vscode/
+
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
+
+
+# =========================
+# Temporary Files
+# =========================
+*.tmp
+*.temp
+*.swp
+*.swo
+
+
+# =========================
+# Docker
+# =========================
+docker-data/
+*.pid
+
+
+# =========================
+# Images - 업로드 이미지 제외
+# =========================
+backend/app/images/uploaded/
+
+
+# =========================
+# Jenkins
+# =========================
+.jenkins/
+workspace/
