@@ -13,8 +13,10 @@ from config import (
 )
 
 
-# EC2 IAM Role 사용
-# AWS_REGION이 없으면 boto3 기본 설정을 사용
+# =========================================================
+# S3 CLIENT
+# =========================================================
+
 if AWS_REGION:
     s3_client = boto3.client(
         "s3",
@@ -24,19 +26,28 @@ else:
     s3_client = boto3.client("s3")
 
 
+# =========================================================
+# INTERNAL HELPERS
+# =========================================================
+
 def _build_key(filename: str) -> str:
     """
-    filename -> images/filename
+    예:
+    피자/Img_027_0001.jpg
+    ->
+    images/피자/Img_027_0001.jpg
     """
-    safe_filename = Path(filename).name
 
-    return f"{S3_IMAGE_PREFIX}/{safe_filename}"
+    filename = filename.replace("\\", "/").lstrip("/")
+
+    return f"{S3_IMAGE_PREFIX}/{filename}"
 
 
 def _generate_filename(original_filename: str) -> str:
     """
-    파일명 충돌 방지를 위해 UUID 사용
+    업로드 파일명 충돌 방지를 위해 UUID 생성
     """
+
     suffix = Path(original_filename).suffix.lower()
 
     if not suffix:
@@ -70,12 +81,19 @@ def upload_image(
         if isinstance(file, bytes):
             file = BytesIO(file)
 
-        s3_client.upload_fileobj(
-            file,
-            S3_BUCKET_NAME,
-            key,
-            ExtraArgs=extra_args if extra_args else None,
-        )
+        if extra_args:
+            s3_client.upload_fileobj(
+                file,
+                S3_BUCKET_NAME,
+                key,
+                ExtraArgs=extra_args,
+            )
+        else:
+            s3_client.upload_fileobj(
+                file,
+                S3_BUCKET_NAME,
+                key,
+            )
 
         return {
             "filename": filename,
@@ -90,7 +108,7 @@ def upload_image(
 
 
 # =========================================================
-# READ - 단일 이미지
+# READ - SINGLE IMAGE
 # =========================================================
 
 def get_image(filename: str) -> dict:
@@ -119,19 +137,17 @@ def get_image(filename: str) -> dict:
             ),
         }
 
-    except s3_client.exceptions.NoSuchKey:
-        raise FileNotFoundError(
-            f"S3 이미지가 존재하지 않습니다: {filename}"
-        )
-
     except ClientError as error:
-        if error.response["Error"]["Code"] in (
+        code = error.response["Error"].get("Code")
+
+        if code in (
             "NoSuchKey",
             "404",
+            "NotFound",
         ):
             raise FileNotFoundError(
                 f"S3 이미지가 존재하지 않습니다: {filename}"
-            )
+            ) from error
 
         raise RuntimeError(
             f"S3 이미지 조회 실패: {error}"
@@ -139,12 +155,16 @@ def get_image(filename: str) -> dict:
 
 
 # =========================================================
-# READ - 이미지 목록
+# READ - LIST
 # =========================================================
 
 def list_images() -> list[dict]:
     """
-    s3://bucket/images/ 내부 이미지 전체 목록 조회
+    s3://버킷/images/ 아래의 모든 이미지 목록 조회
+
+    하위 폴더 포함:
+    images/피자/xxx.jpg
+    images/삼계탕/xxx.jpg
     """
 
     prefix = f"{S3_IMAGE_PREFIX}/"
@@ -162,16 +182,27 @@ def list_images() -> list[dict]:
             if continuation_token:
                 params["ContinuationToken"] = continuation_token
 
-            response = s3_client.list_objects_v2(**params)
+            response = s3_client.list_objects_v2(
+                **params
+            )
 
-            for item in response.get("Contents", []):
+            for item in response.get(
+                "Contents",
+                [],
+            ):
                 key = item["Key"]
 
-                # images/ 자체는 제외
+                # images/ 폴더 객체 자체 제외
                 if key == prefix:
                     continue
 
-                filename = key.removeprefix(prefix)
+                filename = key.removeprefix(
+                    prefix
+                )
+
+                # 폴더 placeholder 제외
+                if filename.endswith("/"):
+                    continue
 
                 images.append(
                     {
@@ -179,12 +210,16 @@ def list_images() -> list[dict]:
                         "key": key,
                         "size": item["Size"],
                         "last_modified": (
-                            item["LastModified"].isoformat()
+                            item[
+                                "LastModified"
+                            ].isoformat()
                         ),
                     }
                 )
 
-            if not response.get("IsTruncated"):
+            if not response.get(
+                "IsTruncated"
+            ):
                 break
 
             continuation_token = response.get(
@@ -209,15 +244,10 @@ def update_image(
     content_type: str | None = None,
 ) -> dict:
     """
-    기존 filename의 객체를 새로운 이미지로 덮어쓰기
-
-    S3는 별도의 UPDATE 명령이 없으므로
-    같은 Key에 Put하면 기존 파일이 교체된다.
+    같은 S3 Key에 새 파일을 업로드해 기존 이미지 덮어쓰기
     """
 
-    def _build_key(filename: str) -> str:
-        filename = filename.lstrip("/")
-        return f"{S3_IMAGE_PREFIX}/{filename}"
+    key = _build_key(filename)
 
     extra_args = {}
 
@@ -228,12 +258,19 @@ def update_image(
         if isinstance(file, bytes):
             file = BytesIO(file)
 
-        s3_client.upload_fileobj(
-            file,
-            S3_BUCKET_NAME,
-            key,
-            ExtraArgs=extra_args if extra_args else None,
-        )
+        if extra_args:
+            s3_client.upload_fileobj(
+                file,
+                S3_BUCKET_NAME,
+                key,
+                ExtraArgs=extra_args,
+            )
+        else:
+            s3_client.upload_fileobj(
+                file,
+                S3_BUCKET_NAME,
+                key,
+            )
 
         return {
             "filename": filename,
@@ -282,7 +319,7 @@ def delete_image(filename: str) -> dict:
 
 def image_exists(filename: str) -> bool:
     """
-    이미지 존재 여부 확인
+    S3 이미지 존재 여부 확인
     """
 
     key = _build_key(filename)
@@ -296,7 +333,9 @@ def image_exists(filename: str) -> bool:
         return True
 
     except ClientError as error:
-        code = error.response["Error"]["Code"]
+        code = error.response["Error"].get(
+            "Code"
+        )
 
         if code in (
             "404",
@@ -305,7 +344,9 @@ def image_exists(filename: str) -> bool:
         ):
             return False
 
-        raise
+        raise RuntimeError(
+            f"S3 이미지 존재 여부 확인 실패: {error}"
+        ) from error
 
 
 # =========================================================
@@ -317,10 +358,10 @@ def get_image_url(
     expires_in: int = 3600,
 ) -> str:
     """
-    Private S3 버킷의 이미지를 프론트에서 표시할 수 있도록
+    Private S3 이미지를 프론트에서 표시하기 위한
     Presigned URL 생성
 
-    expires_in 기본값: 1시간
+    기본 유효시간: 1시간
     """
 
     key = _build_key(filename)
