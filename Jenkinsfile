@@ -1,19 +1,7 @@
 pipeline {
     agent any
 
-    environment {
-        GITHUB_REPO = 'YOUR_GITHUB_REPO_URL'
-        GITHUB_BRANCH = 'main'
-    }
-
     stages {
-        stage('Checkout') {
-            steps {
-                git branch: "${GITHUB_BRANCH}",
-                    url: "${GITHUB_REPO}"
-            }
-        }
-
         stage('Create .env') {
             steps {
                 withCredentials([
